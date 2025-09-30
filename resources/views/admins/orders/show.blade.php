@@ -1,0 +1,197 @@
+@extends('layouts.authenticated')
+@section('title', 'Approved Orders ' . config('app.name'))
+@section('content')
+    <div class="container ">
+        <div class="text-center text-lg-start">
+            <a href="{{ route('admin.orders.index') }}" class="btn btn-primary">View Pending <i
+                    class="fa-solid fa-hand-point-left"></i></a>
+        </div>
+        <h5 class="text-center py-4"><span class="bg-success text-white py-1 px-4">Approved Orders</span></h5>
+        @if (session('success'))
+            <div class="alert alert-success alert-dismissible fade show" role="alert">
+                {{ session('success') }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        @endif
+        <div class="table-responsive-sm">
+            <table class="table table-striped">
+                <thead>
+                    <tr class="text-center">
+                        <th>Date</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach ($allOrders->groupBy(fn($order) => $order->claim_date->format('Y-m-d')) as $date => $dayOrders)
+                        <tr class="text-center">
+                            <td>{{ \Carbon\Carbon::parse($date)->format('d M Y') }}</td>
+                            <td>
+                                <button class="btn btn-sm btn-primary" data-bs-toggle="collapse"
+                                    data-bs-target="#orders-{{ $loop->index }}">
+                                    View Orders
+                                </button>
+                            </td>
+                        </tr>
+
+                        {{-- Collapsible row for orders under this date --}}
+                        <tr class="collapse" id="orders-{{ $loop->index }}">
+                            <td colspan="2">
+                                <table class="table table-borderless table-striped">
+                                    <thead>
+                                        <tr>
+                                            <th>Customer</th>
+                                            <th>Email</th>
+                                            <th>Contact</th>
+                                            <th>Status</th>
+                                            <th>Action</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach ($dayOrders as $order)
+                                            <tr>
+                                                <td class="text-capitalize">{{ $order->user->name }}</td>
+                                                <td>{{ $order->user->email }}</td>
+                                                <td>{{ $order->user->contact }}</td>
+                                                <td>
+                                                    <span class="badge bg-success">{{ ucfirst($order->status) }}</span>
+                                                </td>
+                                                <td>
+                                                    <button class="btn btn-sm btn-info" data-bs-toggle="collapse"
+                                                        data-bs-target="#products-{{ $order->id }}">
+                                                        View Products
+                                                    </button>
+                                                </td>
+                                            </tr>
+
+                                            {{-- Collapsible row for products of this order --}}
+                                            <tr class="collapse" id="products-{{ $order->id }}">
+                                                <td colspan="5">
+                                                    <table class="table table-sm table-striped">
+                                                        <thead>
+                                                            <tr>
+                                                                <th>Product</th>
+                                                                <th>Price</th>
+                                                                <th>Quantity</th>
+                                                                <th>Line Total</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody>
+                                                            @foreach ($order->products as $product)
+                                                                <tr>
+                                                                    <td>{{ $product->name }}</td>
+                                                                    <td>₱{{ number_format($product->pivot->price, 2) }}
+                                                                    </td>
+                                                                    <td>{{ $product->pivot->qty }}</td>
+                                                                    <td>₱{{ number_format($product->pivot->price * $product->pivot->qty, 2) }}
+                                                                    </td>
+                                                                </tr>
+                                                            @endforeach
+                                                            <tr>
+                                                                <td colspan="3" class="text-end"><strong>Total</strong>
+                                                                </td>
+                                                                <td>
+                                                                    <strong>₱{{ number_format($order->total, 2) }}</strong>
+
+                                                                    {{-- ✅ Done button --}}
+                                                                    <button type="button"
+                                                                        class="btn btn-sm btn-success ms-2"
+                                                                        data-bs-toggle="modal"
+                                                                        data-bs-target="#doneModal-{{ $order->id }}">
+                                                                        Done
+                                                                    </button>
+
+                                                                    {{-- ✅ Unclaim button --}}
+                                                                    <button type="button"
+                                                                        class="btn btn-sm btn-danger ms-2"
+                                                                        data-bs-toggle="modal"
+                                                                        data-bs-target="#unclaimModal-{{ $order->id }}">
+                                                                        unclaimed
+                                                                    </button>
+                                                                </td>
+                                                            </tr>
+
+                                                            <!-- ✅ Done Modal -->
+                                                            <div class="modal fade" id="doneModal-{{ $order->id }}"
+                                                                tabindex="-1"
+                                                                aria-labelledby="doneModalLabel-{{ $order->id }}"
+                                                                aria-hidden="true">
+                                                                <div class="modal-dialog">
+                                                                    <div class="modal-content">
+                                                                        <div class="modal-header">
+                                                                            <h5 class="modal-title">Confirm Done</h5>
+                                                                            <button type="button" class="btn-close"
+                                                                                data-bs-dismiss="modal"
+                                                                                aria-label="Close"></button>
+                                                                        </div>
+                                                                        <div class="modal-body">
+                                                                            Are you sure this order has been
+                                                                            <strong>successfully claimed</strong> by the
+                                                                            customer?
+                                                                        </div>
+                                                                        <div class="modal-footer">
+                                                                            <button type="button" class="btn btn-secondary"
+                                                                                data-bs-dismiss="modal">Cancel</button>
+                                                                            <form
+                                                                                action="{{ route('admin.orders.done', ['order' => $order->id]) }}"
+                                                                                method="POST" class="d-inline">
+                                                                                @csrf
+                                                                                @method('patch')
+                                                                                <button type="submit"
+                                                                                    class="btn btn-success">Yes, Mark as
+                                                                                    Done</button>
+                                                                            </form>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+
+                                                            <!-- ✅ Unclaim Modal -->
+                                                            <div class="modal fade" id="unclaimModal-{{ $order->id }}"
+                                                                tabindex="-1"
+                                                                aria-labelledby="unclaimModalLabel-{{ $order->id }}"
+                                                                aria-hidden="true">
+                                                                <div class="modal-dialog">
+                                                                    <div class="modal-content">
+                                                                        <div class="modal-header">
+                                                                            <h5 class="modal-title">Confirm unclaimed</h5>
+                                                                            <button type="button" class="btn-close"
+                                                                                data-bs-dismiss="modal"
+                                                                                aria-label="Close"></button>
+                                                                        </div>
+                                                                        <div class="modal-body">
+                                                                            Are you sure this order is <strong>Unclaimed
+                                                                                (customer did not pick up / scam)
+                                                                            </strong>?
+                                                                        </div>
+                                                                        <div class="modal-footer">
+                                                                            <button type="button" class="btn btn-secondary"
+                                                                                data-bs-dismiss="modal">Cancel</button>
+                                                                            <form
+                                                                                action="{{ route('admin.orders.unclaimed', ['order' => $order->id]) }}"
+                                                                                method="POST" class="d-inline">
+                                                                                @csrf
+                                                                                @method('patch')
+                                                                                <button type="submit"
+                                                                                    class="btn btn-danger">Yes, Mark as
+                                                                                    unclaimed</button>
+                                                                            </form>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+
+                                                        </tbody>
+                                                    </table>
+                                                </td>
+                                            </tr>
+                                        @endforeach
+                                    </tbody>
+                                </table>
+                            </td>
+                        </tr>
+                    @endforeach
+                </tbody>
+            </table>
+        </div>
+    </div>
+@endsection
